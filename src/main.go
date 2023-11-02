@@ -20,7 +20,7 @@ import (
 var (
 	client      util.Client
 	usernameSet bool
-	devMode     bool = false
+	devMode     bool = true
 	// envFile     embed.FS
 )
 
@@ -38,7 +38,7 @@ func main() {
 	urlAddr = "wss://multi-serve.onrender.com/api/chat"
 
 	var chatPass string
-	chatPass = "1234"
+	chatPass = os.Getenv("PASS")
 
 	cli_args := os.Args[1:]
 	if len(cli_args) > 0 {

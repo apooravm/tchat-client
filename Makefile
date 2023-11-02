@@ -1,4 +1,6 @@
-APP_NAME := app.exe
+APP_TITLE := tchat-client
+VERSION := 0.1.0
+APP_NAME := ${APP_TITLE}_v${VERSION}.exe
 BUILD_ROUTE := ./bin/${APP_NAME}
 SRC_ROUTE := ./src/main.go
 
@@ -17,6 +19,9 @@ run: tidy build
 
 dev: build
 	@${BUILD_ROUTE}
+
+release: tidy
+	@go build -o ./release/${APP_NAME} ${SRC_ROUTE}
 
 build2:
 	@go build -${BUILD_ROUTE} -tags embedenv ${SRC_ROUTE}
