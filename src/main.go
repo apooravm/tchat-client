@@ -20,7 +20,7 @@ import (
 var (
 	client      util.Client
 	usernameSet bool
-	devMode     bool = true
+	devMode     bool = false
 	// envFile     embed.FS
 )
 
