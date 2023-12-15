@@ -135,14 +135,18 @@ func (client *Client) SendMsgOrCmd(content string) error {
 		client.Message.Timestamp = GetDateTime()
 
 	default:
-
+		return &ClientError{
+			Code:   0,
+			Err:    nil,
+			Simple: "Invalid Command:",
+		}
 	}
 
 	if err := client.SendMessageStruct(); err != nil {
 		return &ClientError{
 			Code:   0,
 			Err:    err,
-			Simple: "Invalid Command",
+			Simple: err.Error(),
 		}
 	}
 
