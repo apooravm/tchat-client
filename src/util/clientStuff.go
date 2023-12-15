@@ -3,36 +3,41 @@ package util
 import (
 	"fmt"
 	"log"
-	"os"
+	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
 )
 
-func notworkinmain() {
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Error loading .env file")
-	}
-
-	username := ""
-	client := Client{
-		UrlAddr:  "ws://localhost:" + os.Getenv("PORT") + "/chat",
-		Username: username,
-		Message: Message{
-			Sender:    username,
-			Direction: C2S,
-			Config:    "",
-			Content:   "",
-			Password:  os.Getenv("CONN_PASS"),
-		},
-	}
-	if err := client.Connect(); err != nil {
-		log.Fatal(err)
-	}
-	if err := client.Run(); err != nil {
-		log.Fatal(err)
-	}
+// Returns datetime in the format "2006-01-02 15:04:05"
+func GetDateTime() string {
+	currentTime := time.Now()
+	return currentTime.Format("2006-01-02 15:04:05")
 }
+
+// func notworkinmain() {
+// 	if err := godotenv.Load(); err != nil {
+// 		log.Printf("Error loading .env file")
+// 	}
+
+// 	username := ""
+// 	client := Client{
+// 		UrlAddr:  "ws://localhost:" + os.Getenv("PORT") + "/chat",
+// 		Username: username,
+// 		Message: Message{
+// 			Sender:    username,
+// 			Direction: C2S,
+// 			Config:    "",
+// 			Content:   "",
+// 			Password:  os.Getenv("CONN_PASS"),
+// 		},
+// 	}
+// 	if err := client.Connect(); err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	if err := client.Run(); err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
 
 // ClientError.Simple => Simple description of the error
 type ClientError struct {
@@ -51,6 +56,7 @@ type Message struct {
 	Config    string
 	Content   string
 	Password  string
+	Timestamp string
 }
 
 type Client struct {
@@ -75,7 +81,7 @@ func (client *Client) Handshake() error {
 	client.Message.Direction = C2S
 	client.Message.Config = "config-username"
 
-	if err := client.SendMessage(); err != nil {
+	if err := client.SendMessageStruct(); err != nil {
 		return err
 	}
 
@@ -88,7 +94,7 @@ func (client *Client) ListClients() error {
 	client.Message.Direction = C2S
 	client.Message.Config = "config-list"
 
-	if err := client.SendMessage(); err != nil {
+	if err := client.SendMessageStruct(); err != nil {
 		return err
 	}
 
@@ -96,12 +102,47 @@ func (client *Client) ListClients() error {
 }
 
 // Send method to make the code a bit cleaner
-func (client *Client) SendMessage() error {
+func (client *Client) SendMessageStruct() error {
 	if err := client.Conn.WriteJSON(client.Message); err != nil {
 		return &ClientError{
 			Code:   0,
 			Err:    err,
-			Simple: "Error sending data to the server...",
+			Simple: "Error sending to server...",
+		}
+	}
+	return nil
+}
+
+// Sends the Message struct to the Server
+// Checks if command or message and sends appropriate config setup
+// If command, content begins with ':'
+func (client *Client) SendMsgOrCmd(content string) error {
+	commandChar := ":"
+	// Normal Chat Message
+	if string(content[0]) != commandChar {
+		if err := client.Send2All(content); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	switch content {
+	case ":list":
+		client.Message.Direction = C2S
+		client.Message.Config = "config-list"
+		client.Message.Content = ""
+		client.Message.Timestamp = GetDateTime()
+
+	default:
+
+	}
+
+	if err := client.SendMessageStruct(); err != nil {
+		return &ClientError{
+			Code:   0,
+			Err:    err,
+			Simple: "Invalid Command",
 		}
 	}
 
@@ -116,8 +157,9 @@ func (client *Client) Send2All(content string) error {
 	client.Message.Direction = C2A
 	client.Message.Config = ""
 	client.Message.Content = content
+	client.Message.Timestamp = GetDateTime()
 
-	if err := client.SendMessage(); err != nil {
+	if err := client.SendMessageStruct(); err != nil {
 		return err
 	}
 

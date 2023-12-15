@@ -8,13 +8,16 @@ install:
 	@go mod download
 
 build:
+	@echo "building..."
 	@go build -o ${BUILD_ROUTE} ${SRC_ROUTE}
 
 tidy:
+	@echo "Tidying and vendoring..."
 	@go mod tidy
 	@go mod vendor
 
 run: tidy build
+	@echo "Running binary..."
 	@${BUILD_ROUTE}
 
 dev: build
@@ -25,5 +28,6 @@ release: tidy
 
 build2:
 	@go build -${BUILD_ROUTE} -tags embedenv ${SRC_ROUTE}
+
 run2: tidy build2
 	@${BUILD_ROUTE}

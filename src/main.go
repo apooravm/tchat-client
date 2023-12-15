@@ -22,6 +22,11 @@ var (
 	usernameSet bool
 	devMode     bool = false
 	// envFile     embed.FS
+
+	urlAddr   string = "wss://multi-serve.onrender.com/api/chat"
+	pass      string
+	loadEnv   bool = false
+	timestamp bool = false
 )
 
 type (
@@ -33,26 +38,72 @@ const (
 	SELF_ERR   = 400
 )
 
+func helper() {
+	fmt.Println("tchat Helper")
+	fmt.Println("Format: 'tchat [FLAG]' OR 'tchat [FLAG]=[VALUE]'")
+	fmt.Println("\nDefaults")
+	fmt.Println("url=" + urlAddr)
+	fmt.Println("loadEnv=" + "false")
+	fmt.Println("timestamp=" + "false")
+	fmt.Println("pass=" + pass)
+
+	fmt.Println("\nIn Chat Commands")
+	fmt.Println(":list => List Users Online")
+}
+
 func main() {
-	var urlAddr string
-	urlAddr = "wss://multi-serve.onrender.com/api/chat"
-
-	var chatPass string
-	chatPass = os.Getenv("PASS")
-
 	cli_args := os.Args[1:]
-	if len(cli_args) > 0 {
-		if cli_args[0] == "dev" {
-			urlAddr = "ws://localhost:4800/api/chat"
-			devMode = true
-		} else if cli_args[0] == "pass" && len(cli_args) == 2 {
-			chatPass = cli_args[1]
+
+	for _, val := range cli_args {
+		flag_KV := strings.Split(val, "=")
+		if len(flag_KV) == 2 {
+			switch flag_KV[0] {
+			case "url":
+				urlAddr = flag_KV[1]
+
+			case "pass":
+				pass = flag_KV[1]
+
+			case "loadEnv":
+				if flag_KV[1] == "true" {
+					loadEnv = true
+				}
+
+			case "timestamp":
+				if flag_KV[1] == "true" {
+					timestamp = true
+				}
+
+			default:
+				fmt.Println("Invalid Command\nTry 'tchat help'")
+				return
+			}
+
+		} else if len(flag_KV) == 1 {
+			switch flag_KV[0] {
+			case "help":
+				helper()
+				return
+
+			default:
+				fmt.Println("Invalid Command\nTry 'tchat help'")
+				return
+			}
+
+		} else {
+			fmt.Println("Invalid Command format\nTry 'tchat help'")
+			return
 		}
 	}
 
-	if devMode {
+	pass = "1234"
+
+	if loadEnv {
 		if err := godotenv.Load(); err != nil {
 			log.Printf("Error loading .env file")
+
+		} else {
+			pass = os.Getenv("PASS")
 		}
 	}
 
@@ -65,7 +116,8 @@ func main() {
 			Direction: "client-to-server",
 			Config:    "",
 			Content:   "",
-			Password:  chatPass,
+			Password:  pass,
+			Timestamp: util.GetDateTime(),
 		},
 	}
 	p := tea.NewProgram(initialModel())
@@ -235,15 +287,23 @@ func (m ChatModel) FormatChatMessage(message util.Message, senderStyle lipgloss.
 	if message.Sender == "Server" {
 		senderStyle = m.serverMessageStyle
 	}
+	extra := ""
+	if timestamp {
+		extra = "\n" + message.Timestamp
+	}
 	sender := senderStyle.Render(message.Sender + ": ")
 	content := message.Content
-	return m.WrapMessageStrings(sender+content, m.vpWidth)
+	return m.WrapMessageStrings(sender+content+extra, m.vpWidth)
 }
 
 func (m ChatModel) FormatChatMessageString(message string, senderStyle lipgloss.Style) string {
+	extra := ""
+	if timestamp {
+		extra = "\n" + util.GetDateTime()
+	}
 	sender := senderStyle.Render("You: ")
 	content := message
-	return m.WrapMessageStrings(sender+content, m.vpWidth)
+	return m.WrapMessageStrings(sender+content+extra, m.vpWidth)
 }
 
 func (m ChatModel) FormatChatErrorString(message string) string {
@@ -287,6 +347,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.messages = append(m.messages, m.FormatChatErrorString(err.Error()))
 					m.viewport.SetContent(strings.Join(m.messages, "\n"))
 					m.viewport.GotoBottom()
+
 				} else {
 					return m, tea.Quit
 				}
@@ -308,7 +369,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.SetContent(strings.Join(m.messages, "\n"))
 				m.viewport.GotoBottom()
 				if client.ConnStatus {
-					client.Send2All(m.textarea.Value())
+					if err := client.SendMsgOrCmd(m.textarea.Value()); err != nil {
+						m.messages = append(m.messages, m.FormatChatErrorString(err.Error()))
+						m.viewport.SetContent(strings.Join(m.messages, "\n"))
+						m.viewport.GotoBottom()
+					}
 				}
 				m.textarea.Reset()
 			}
