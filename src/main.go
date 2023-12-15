@@ -358,11 +358,13 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if !usernameSet {
 				username := m.usernameInput.Value()
-				client.Username = username
-				client.Message.Sender = username
-				usernameSet = true
-				m.textarea.Reset()
-				return m, m.Init()
+				if len(username) != 0 {
+					client.Username = username
+					client.Message.Sender = username
+					usernameSet = true
+					m.textarea.Reset()
+					return m, m.Init()
+				}
 			}
 			if len(m.textarea.Value()) != 0 {
 				m.messages = append(m.messages, m.FormatChatMessageString(m.textarea.Value(), m.selfMessageStyle))
